@@ -1,0 +1,13 @@
+name: status_saver
+description: Status Saver App
+
+environment:
+  sdk: ">=2.17.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  share_plus: ^7.0.0
+
+flutter:
+  uses-material-design: true
