@@ -6,14 +6,20 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ">=2.17.0 <4.0.0"  # وسعنا النطاق عشان يتوافق مع Flutter الجديد
+  sdk: ">=2.17.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
 
+  # مشاركة الملفات
   share_plus: ^7.2.2
-  permission_handler: ^11.3.0  # ✅ إضافة مهمة لطلب الصلاحيات
+
+  # طلب الأذونات
+  permission_handler: ^11.3.0
+
+  # اختيار المجلد (الحل الذهبي لأندرويد 13+)
+  file_picker: ^6.1.1
 
 dev_dependencies:
   flutter_test:
