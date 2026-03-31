@@ -26,48 +26,73 @@ class StatusPage extends StatefulWidget {
 class _StatusPageState extends State<StatusPage> {
   List<File> images = [];
   List<File> videos = [];
+  bool isLoading = true; // متغير للتحكم في واجهة التحميل
 
   @override
   void initState() {
     super.initState();
-    requestPermission(); // ✅ تم التأكد
+    requestPermission();
   }
 
-  // ✅ دالة الإذن (المصححة)
+  // ✅ دالة الإذن المصححة والمحسنة
   Future<void> requestPermission() async {
-    if (await Permission.manageExternalStorage.isDenied) {
-      await Permission.manageExternalStorage.request();
+    // طلب الإذن العادي والشامل في نفس الوقت لتغطية كل إصدارات الأندرويد
+    Map<Permission, PermissionStatus> statuses = await [
+      Permission.manageExternalStorage,
+      Permission.storage,
+    ].request();
+
+    bool isGranted = false;
+
+    // التحقق من قبول أي من الإذنين
+    if (statuses[Permission.manageExternalStorage]!.isGranted ||
+        statuses[Permission.storage]!.isGranted) {
+      isGranted = true;
     }
 
-    if (!await Permission.manageExternalStorage.isGranted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("يرجى تفعيل إذن الوصول لجميع الملفات")),
-      );
-      return;
+    if (isGranted) {
+      loadStatuses();
+    } else {
+      setState(() {
+        isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("يرجى تفعيل إذن الوصول للملفات من إعدادات الهاتف")),
+        );
+      }
     }
-
-    loadStatuses();
   }
 
-  // ✅ قراءة الحالات تلقائي
+  // ✅ قراءة الحالات من جميع المسارات الممكنة
   void loadStatuses() {
-    Directory dir = Directory(
-        '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/.Statuses');
+    // قائمة بجميع مسارات الواتساب الممكنة (العادي والأعمال - القديم والحديث)
+    List<String> paths = [
+      '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/.Statuses',
+      '/storage/emulated/0/Android/media/com.whatsapp.w4b/WhatsApp Business/Media/.Statuses',
+      '/storage/emulated/0/WhatsApp/Media/.Statuses',
+      '/storage/emulated/0/WhatsApp Business/Media/.Statuses',
+    ];
 
-    // دعم واتساب بزنس
-    if (!dir.existsSync()) {
-      dir = Directory(
-          '/storage/emulated/0/Android/media/com.whatsapp.w4b/WhatsApp Business/Media/.Statuses');
+    List<FileSystemEntity> allFiles = [];
+
+    // البحث في جميع المسارات وجمع الملفات الموجودة
+    for (String path in paths) {
+      Directory dir = Directory(path);
+      if (dir.existsSync()) {
+        allFiles.addAll(dir.listSync());
+      }
     }
 
-    if (!dir.existsSync()) {
-      setState(() {});
+    if (allFiles.isEmpty) {
+      setState(() {
+        isLoading = false;
+      });
       return;
     }
 
-    final files = dir.listSync();
-
-    images = files
+    // فلترة الصور
+    images = allFiles
         .where((f) =>
             f.path.endsWith('.jpg') ||
             f.path.endsWith('.png') ||
@@ -75,17 +100,20 @@ class _StatusPageState extends State<StatusPage> {
         .map((e) => File(e.path))
         .toList();
 
-    videos = files
+    // فلترة الفيديوهات
+    videos = allFiles
         .where((f) => f.path.endsWith('.mp4'))
         .map((e) => File(e.path))
         .toList();
 
-    setState(() {});
+    setState(() {
+      isLoading = false;
+    });
   }
 
-  // حفظ ملف
+  // ✅ حفظ ملف (تم تغيير المسار لمجلد Download ليكون متوافقاً وأكثر أماناً)
   Future<void> saveFile(File file) async {
-    final dir = Directory('/storage/emulated/0/MyApp');
+    final dir = Directory('/storage/emulated/0/Download/StatusSaver');
 
     if (!dir.existsSync()) {
       dir.createSync(recursive: true);
@@ -94,64 +122,71 @@ class _StatusPageState extends State<StatusPage> {
     final newPath = '${dir.path}/${file.uri.pathSegments.last}';
     await file.copy(newPath);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("تم الحفظ")),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("تم الحفظ في التنزيلات (Download/StatusSaver)")),
+      );
+    }
   }
 
-  // مشاركة
+  // ✅ مشاركة
   void shareFile(File file) {
     Share.shareXFiles([XFile(file.path)]);
   }
 
-  // عرض الشبكة
+  // ✅ عرض الشبكة
   Widget buildGrid(List<File> files) {
+    if (isLoading) {
+      return Center(child: CircularProgressIndicator());
+    }
+
     if (files.isEmpty) {
-      return Center(child: Text("لا توجد حالات"));
+      return Center(child: Text("لا توجد حالات.. قم بمشاهدة بعض الحالات في الواتساب أولاً"));
     }
 
     return GridView.builder(
       itemCount: files.length,
-      gridDelegate:
-          SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2),
       itemBuilder: (_, i) {
         final f = files[i];
 
-        return Stack(
-          children: [
-            Positioned.fill(
-              child: f.path.endsWith('.mp4')
+        return Card(
+          margin: EdgeInsets.all(2),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              f.path.endsWith('.mp4')
                   ? Container(
-                      color: Colors.black,
+                      color: Colors.black87,
                       child: Center(
                         child: Icon(Icons.play_circle_fill,
                             color: Colors.white, size: 50),
                       ),
                     )
                   : Image.file(f, fit: BoxFit.cover),
-            ),
-            Positioned(
-              bottom: 5,
-              left: 5,
-              right: 5,
-              child: Row(
-                mainAxisAlignment:
-                    MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: Icon(Icons.download,
-                        color: Colors.white),
-                    onPressed: () => saveFile(f),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  color: Colors.black54, // خلفية شفافة للأزرار لتكون واضحة
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.download, color: Colors.white),
+                        onPressed: () => saveFile(f),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.share, color: Colors.white),
+                        onPressed: () => shareFile(f),
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    icon:
-                        Icon(Icons.share, color: Colors.white),
-                    onPressed: () => shareFile(f),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -173,7 +208,12 @@ class _StatusPageState extends State<StatusPage> {
           actions: [
             IconButton(
               icon: Icon(Icons.refresh),
-              onPressed: loadStatuses,
+              onPressed: () {
+                setState(() {
+                  isLoading = true; // إظهار التحميل عند التحديث
+                });
+                loadStatuses();
+              },
             )
           ],
         ),
