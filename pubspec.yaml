@@ -12,14 +12,8 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # مشاركة الملفات
-  share_plus: ^7.2.2
-
-  # طلب الأذونات
   permission_handler: ^11.3.0
-
-  # اختيار المجلد (الحل الذهبي لأندرويد 13+)
-  file_picker: ^6.1.1
+  share_plus: ^7.2.2
 
 dev_dependencies:
   flutter_test:
