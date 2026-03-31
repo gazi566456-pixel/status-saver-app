@@ -1,23 +1,30 @@
 name: status_saver
-description: Status Saver App
+description: A new Flutter project for saving WhatsApp statuses.
 
+# منع النشر للمتجر
 publish_to: 'none'
 
 version: 1.0.0+1
 
 environment:
-  sdk: ">=2.17.0 <4.0.0"
+  sdk: ">=3.0.0 <4.0.0" # توافق مع إصدارات فلاتر الحديثة
 
 dependencies:
   flutter:
     sdk: flutter
 
+  # المكتبة المسؤولة عن طلب إذن "إدارة جميع الملفات" (إصدار حديث ضروري)
   permission_handler: ^11.3.0
+  
+  # المكتبة المسؤولة عن مشاركة الصور والفيديوهات
   share_plus: ^7.2.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
+  # إضافة أيقونة للتطبيق (اختياري)
+  flutter_lints: ^3.0.0
 
 flutter:
   uses-material-design: true
