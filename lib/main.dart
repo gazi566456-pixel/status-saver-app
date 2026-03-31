@@ -1,8 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:share_plus/share_plus.dart';
 
 void main() {
   runApp(MyApp());
@@ -25,47 +24,90 @@ class StatusPage extends StatefulWidget {
 }
 
 class _StatusPageState extends State<StatusPage> {
-  List<File> files = [];
+  List<File> images = [];
+  List<File> videos = [];
 
   @override
   void initState() {
     super.initState();
-    requestPermission();
+    requestPermission(); // ✅ تم التأكد
   }
 
+  // ✅ دالة الإذن (المصححة)
   Future<void> requestPermission() async {
-    await Permission.photos.request();
-    await Permission.videos.request();
+    if (await Permission.manageExternalStorage.isDenied) {
+      await Permission.manageExternalStorage.request();
+    }
+
+    if (!await Permission.manageExternalStorage.isGranted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("يرجى تفعيل إذن الوصول لجميع الملفات")),
+      );
+      return;
+    }
+
+    loadStatuses();
   }
 
-  // 🔥 اختيار مجلد الحالات يدوي (يشتغل بكل الإصدارات)
-  Future<void> pickFolder() async {
-    String? path = await FilePicker.platform.getDirectoryPath();
+  // ✅ قراءة الحالات تلقائي
+  void loadStatuses() {
+    Directory dir = Directory(
+        '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/.Statuses');
 
-    if (path == null) return;
+    // دعم واتساب بزنس
+    if (!dir.existsSync()) {
+      dir = Directory(
+          '/storage/emulated/0/Android/media/com.whatsapp.w4b/WhatsApp Business/Media/.Statuses');
+    }
 
-    final dir = Directory(path);
+    if (!dir.existsSync()) {
+      setState(() {});
+      return;
+    }
 
-    final all = dir.listSync();
+    final files = dir.listSync();
 
-    files = all
+    images = files
         .where((f) =>
             f.path.endsWith('.jpg') ||
             f.path.endsWith('.png') ||
-            f.path.endsWith('.mp4'))
+            f.path.endsWith('.jpeg'))
+        .map((e) => File(e.path))
+        .toList();
+
+    videos = files
+        .where((f) => f.path.endsWith('.mp4'))
         .map((e) => File(e.path))
         .toList();
 
     setState(() {});
   }
 
+  // حفظ ملف
+  Future<void> saveFile(File file) async {
+    final dir = Directory('/storage/emulated/0/MyApp');
+
+    if (!dir.existsSync()) {
+      dir.createSync(recursive: true);
+    }
+
+    final newPath = '${dir.path}/${file.uri.pathSegments.last}';
+    await file.copy(newPath);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("تم الحفظ")),
+    );
+  }
+
+  // مشاركة
   void shareFile(File file) {
     Share.shareXFiles([XFile(file.path)]);
   }
 
-  Widget buildGrid() {
+  // عرض الشبكة
+  Widget buildGrid(List<File> files) {
     if (files.isEmpty) {
-      return Center(child: Text("اضغط زر المجلد واختر مجلد الحالات"));
+      return Center(child: Text("لا توجد حالات"));
     }
 
     return GridView.builder(
@@ -82,19 +124,33 @@ class _StatusPageState extends State<StatusPage> {
                   ? Container(
                       color: Colors.black,
                       child: Center(
-                          child: Icon(Icons.play_circle_fill,
-                              size: 50, color: Colors.white)),
+                        child: Icon(Icons.play_circle_fill,
+                            color: Colors.white, size: 50),
+                      ),
                     )
                   : Image.file(f, fit: BoxFit.cover),
             ),
             Positioned(
               bottom: 5,
+              left: 5,
               right: 5,
-              child: IconButton(
-                icon: Icon(Icons.share, color: Colors.white),
-                onPressed: () => shareFile(f),
+              child: Row(
+                mainAxisAlignment:
+                    MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.download,
+                        color: Colors.white),
+                    onPressed: () => saveFile(f),
+                  ),
+                  IconButton(
+                    icon:
+                        Icon(Icons.share, color: Colors.white),
+                    onPressed: () => shareFile(f),
+                  ),
+                ],
               ),
-            )
+            ),
           ],
         );
       },
@@ -103,17 +159,31 @@ class _StatusPageState extends State<StatusPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text("Status Saver Pro"),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.folder),
-            onPressed: pickFolder, // 🔥 أهم زر
-          )
-        ],
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text("Status Saver"),
+          bottom: TabBar(
+            tabs: [
+              Tab(text: "صور"),
+              Tab(text: "فيديو"),
+            ],
+          ),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.refresh),
+              onPressed: loadStatuses,
+            )
+          ],
+        ),
+        body: TabBarView(
+          children: [
+            buildGrid(images),
+            buildGrid(videos),
+          ],
+        ),
       ),
-      body: buildGrid(),
     );
   }
 }
