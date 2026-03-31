@@ -1,13 +1,22 @@
 name: status_saver
 description: Status Saver App
 
+publish_to: 'none' # مهم لمنع مشاكل النشر
+
+version: 1.0.0+1
+
 environment:
-  sdk: ">=2.17.0 <4.0.0"
+  sdk: ">=2.17.0 <3.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  share_plus: ^7.0.0
+
+  share_plus: ^7.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
 
 flutter:
   uses-material-design: true
