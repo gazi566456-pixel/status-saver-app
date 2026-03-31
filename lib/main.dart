@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   runApp(MyApp());
@@ -30,16 +31,34 @@ class _StatusPageState extends State<StatusPage> {
   @override
   void initState() {
     super.initState();
+    requestPermission();
+  }
+
+  // ✅ طلب الصلاحيات
+  Future<void> requestPermission() async {
+    if (await Permission.manageExternalStorage.isDenied) {
+      await Permission.manageExternalStorage.request();
+    }
     loadStatuses();
   }
 
-  // تحميل الحالات
+  // ✅ تحميل الحالات (يدعم المسار الجديد والقديم)
   void loadStatuses() {
-    final dir =
-        Directory('/storage/emulated/0/WhatsApp/Media/.Statuses');
+    images.clear();
+    videos.clear();
+
+    // المسار الجديد (Android 11+)
+    Directory dir = Directory(
+        '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/.Statuses');
+
+    // إذا ما وجد نستخدم القديم
+    if (!dir.existsSync()) {
+      dir = Directory('/storage/emulated/0/WhatsApp/Media/.Statuses');
+    }
 
     if (!dir.existsSync()) {
       print("المجلد غير موجود");
+      setState(() {});
       return;
     }
 
@@ -61,19 +80,17 @@ class _StatusPageState extends State<StatusPage> {
     setState(() {});
   }
 
-  // حفظ ملف واحد (محسّن)
+  // حفظ ملف
   Future<void> saveFile(File file) async {
     try {
       final dir = Directory('/storage/emulated/0/MyApp');
 
-      // إنشاء المجلد إذا غير موجود
       if (!dir.existsSync()) {
         dir.createSync(recursive: true);
       }
 
       final newPath = '${dir.path}/${file.uri.pathSegments.last}';
 
-      // منع التكرار
       if (File(newPath).existsSync()) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("محفوظ مسبقاً")),
@@ -93,7 +110,6 @@ class _StatusPageState extends State<StatusPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("حدث خطأ أثناء الحفظ")),
       );
-      print(e);
     }
   }
 
@@ -113,7 +129,6 @@ class _StatusPageState extends State<StatusPage> {
     Share.shareXFiles([XFile(file.path)]);
   }
 
-  // عرض الشبكة
   Widget buildGrid(List<File> files) {
     if (files.isEmpty) {
       return Center(
@@ -143,8 +158,6 @@ class _StatusPageState extends State<StatusPage> {
                     )
                   : Image.file(file, fit: BoxFit.cover),
             ),
-
-            // علامة الصح
             if (saved.contains(file.path))
               Positioned(
                 top: 5,
@@ -152,8 +165,6 @@ class _StatusPageState extends State<StatusPage> {
                 child: Icon(Icons.check,
                     color: Colors.green, size: 28),
               ),
-
-            // الأزرار
             Positioned(
               bottom: 5,
               left: 5,
